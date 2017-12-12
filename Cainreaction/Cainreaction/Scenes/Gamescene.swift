@@ -12,59 +12,25 @@ import SpriteKit
 struct PhysicsCategory {
     static let None: UInt32 = 0
     static let All: UInt32 = UInt32.max
-    static let Cat: UInt32 = 0b1
-    static let Bomb: UInt32 = 0b10
+    static let Cat: UInt32 = 1
+    static let Bomb: UInt32 = 2
+    static let Wall: UInt32 = 3
 }
-
-func + (left: CGPoint, right: CGPoint) -> CGPoint {
-    return CGPoint(x: left.x + right.x, y: left.y + right.y)
-}
-
-func - (left: CGPoint, right: CGPoint) -> CGPoint {
-    return CGPoint(x: left.x - right.x, y: left.y - right.y)
-}
-
-func * (point: CGPoint, scalar: CGFloat) -> CGPoint {
-    return CGPoint(x: point.x * scalar, y: point.y * scalar)
-}
-
-func / (point: CGPoint, scalar: CGFloat) -> CGPoint {
-    return CGPoint(x: point.x / scalar, y: point.y / scalar)
-}
-
-#if !(arch(x86_64) || arch(arm64))
-    func sqrt(a: CGFloat) -> CGFloat {
-        return CGFloat(sqrtf(Float(a)))
-    }
-#endif
-
-extension CGPoint {
-    func length() -> CGFloat {
-        return sqrt(x*x + y*y)
-    }
-    
-    func normalized() -> CGPoint {
-        return self / length()
-    }
-}
-
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
-    
-    var catPosition = [String:CGPoint]()
     
     override func didMove(to view: SKView) {
         self.backgroundColor = SKColor.white
         self.physicsBody = SKPhysicsBody(edgeLoopFrom: self.frame)
-
+        self.physicsBody?.categoryBitMask = PhysicsCategory.Wall
         multipleSprite(amount: 10)
         physicsWorld.gravity = CGVector.zero
         physicsWorld.contactDelegate = self
-        
+
     }
     
     func didBegin(_ contact: SKPhysicsContact) {
-        
+
         var firstBody: SKPhysicsBody
         var secondBody: SKPhysicsBody
         if contact.bodyA.categoryBitMask < contact.bodyB.categoryBitMask {
@@ -75,16 +41,26 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             secondBody = contact.bodyA
         }
         
-        
         if ((firstBody.categoryBitMask & PhysicsCategory.Cat != 0) &&
-            (secondBody.categoryBitMask & PhysicsCategory.Bomb != 0)) {
+            (secondBody.categoryBitMask & PhysicsCategory.Cat != 0)) {
             if let cat = firstBody.node as? SKSpriteNode, let
                 bomb = secondBody.node as? SKSpriteNode {
+                self.children.filter({ (aNode) -> Bool in
+                    guard let newCat = aNode as? CatNode else {
+                        return false
+                    }
+                    guard cat.position.distanceFromCGPoint(point: newCat.position) < 50 else {
+                        return false
+                    }
+                    return true
+                }).forEach({ (explodingCat) in
+                    //explodingCat.removeFromParent()
+                })
                 bombDidCollideWithCat(bomb: bomb, cat: cat)
             }
         }
     }
-    
+
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         
         guard let touch = touches.first else {
@@ -94,7 +70,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let bomb = SKSpriteNode(imageNamed: "explosion")
         bomb.position = touchLocation
         bomb.size = CGSize(width: bomb.size.width/2, height: bomb.size.height/2)
-        bomb.physicsBody = SKPhysicsBody(circleOfRadius: bomb.frame.size.width/2)
+        bomb.physicsBody = SKPhysicsBody(circleOfRadius: 50)
         bomb.physicsBody?.isDynamic = true
         bomb.physicsBody?.categoryBitMask = PhysicsCategory.Bomb
         bomb.physicsBody?.contactTestBitMask = PhysicsCategory.Cat
@@ -104,35 +80,26 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let actionMove = SKAction.move(to: touchLocation, duration: 0.5)
         let actionMoveDone = SKAction.removeFromParent()
         bomb.run(SKAction.sequence([actionMove, actionMoveDone]))
+        
+        for cat in self.children {
+            cat.physicsBody?.applyImpulse(CGVector(dx: random(min: -10, max: 10), dy: random(min: -10, max: 10)))
+        }
+        
     }
     
     func createCat() -> SKSpriteNode {
-        let sprite = SKSpriteNode(imageNamed: "cat")
-        let actualX = random(min: sprite.size.width/2, max: self.size.width - sprite.size.width/2)
-        let actualY = random(min: sprite.size.height/2, max: self.size.height - sprite.size.height/2)
-        sprite.position = CGPoint(x: actualX, y: actualY)
-        sprite.size = CGSize(width: sprite.size.width/2, height: sprite.size.height/2)
-        sprite.physicsBody = SKPhysicsBody(circleOfRadius: sprite.frame.size.width/2)
-        sprite.physicsBody?.restitution = 0
-        sprite.physicsBody?.affectedByGravity = true
-        sprite.physicsBody?.mass = 200
-        sprite.physicsBody?.categoryBitMask = PhysicsCategory.Cat
-        sprite.physicsBody?.contactTestBitMask = PhysicsCategory.Bomb
-        sprite.physicsBody?.collisionBitMask = PhysicsCategory.None
-        sprite.physicsBody?.isDynamic = true
-        return sprite
+        let cat = CatNode()
+        let actualX = random(min: cat.size.width/2, max: self.size.width - cat.size.width/2)
+        let actualY = random(min: cat.size.height/2, max: self.size.height - cat.size.height/2)
+        cat.position = CGPoint(x: actualX, y: actualY)
+        return cat
     }
 
     func multipleSprite(amount: Int) {
         var i: Int = 0
         while i < amount {
-            i += 1
             let sprite = createCat()
-            sprite.name = "CAT \(i)"
-            if let name = sprite.name {
-                self.catPosition[name] = sprite.position
-            }
-            print(self.catPosition)
+            i += 1
             self.addChild(sprite)
         }
     }
@@ -144,8 +111,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func bombDidCollideWithCat(bomb: SKSpriteNode, cat: SKSpriteNode) {
         print("Hit")
         cat.removeFromParent()
+        
     }
-    
 }
 
 extension CGPoint {
@@ -153,4 +120,26 @@ extension CGPoint {
         return sqrt(pow(self.x - point.x,2) + pow(self.y - point.y,2))
     }
 }
+
+class CatNode: SKSpriteNode {
+    
+    convenience init() {
+        self.init(imageNamed: "cat")
+        self.size = CGSize(width: self.size.width/2, height: self.size.height/2)
+        self.physicsBody = SKPhysicsBody(circleOfRadius: self.frame.size.width/2)
+        self.physicsBody?.restitution = 1.0
+        self.physicsBody?.friction = 1.0
+        self.physicsBody?.linearDamping = 1.0
+        self.physicsBody?.affectedByGravity = false
+        self.physicsBody?.categoryBitMask = PhysicsCategory.Cat
+        self.physicsBody?.contactTestBitMask = PhysicsCategory.Bomb
+        self.physicsBody?.contactTestBitMask = PhysicsCategory.Cat
+        self.physicsBody?.collisionBitMask = PhysicsCategory.Wall
+        self.physicsBody?.isDynamic = true
+        self.name = "cat"
+
+    }
+}
+
+
 
