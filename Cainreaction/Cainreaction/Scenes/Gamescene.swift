@@ -27,8 +27,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         createCats(amount: 10)
         physicsWorld.gravity = CGVector.zero
         physicsWorld.contactDelegate = self
-        createGrid()
-
     }
     
     func didBegin(_ contact: SKPhysicsContact) {
@@ -119,12 +117,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             self.addChild(sprite)
         }
     }
-    
-    func createGrid(){
-        
-        
-
-    }
 
     func random(min: CGFloat, max: CGFloat) -> CGFloat {
         return CGFloat(Float(arc4random()) / 0xFFFFFFFF) * (max - min) + min
@@ -149,7 +141,7 @@ class CatNode: SKSpriteNode {
     convenience init() {
         self.init(imageNamed: "cat")
         self.size = CGSize(width: self.size.width/2, height: self.size.height/2)
-        self.physicsBody = SKPhysicsBody(circleOfRadius: self.frame.size.width/2)
+        self.physicsBody = SKPhysicsBody(circleOfRadius: self.frame.size.width/3)
         self.physicsBody?.restitution = 1.0
         self.physicsBody?.friction = 1.0
         self.physicsBody?.linearDamping = 1.0
