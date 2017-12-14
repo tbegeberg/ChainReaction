@@ -18,19 +18,22 @@ struct PhysicsCategory {
 }
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
+
     
     override func didMove(to view: SKView) {
         self.backgroundColor = SKColor.white
         self.physicsBody = SKPhysicsBody(edgeLoopFrom: self.frame)
         self.physicsBody?.categoryBitMask = PhysicsCategory.Wall
-        multipleSprite(amount: 10)
+        createCats(amount: 10)
         physicsWorld.gravity = CGVector.zero
         physicsWorld.contactDelegate = self
+        createGrid()
 
     }
     
     func didBegin(_ contact: SKPhysicsContact) {
-
+        
+  
         var firstBody: SKPhysicsBody
         var secondBody: SKPhysicsBody
         if contact.bodyA.categoryBitMask < contact.bodyB.categoryBitMask {
@@ -86,22 +89,41 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
     }
-    
-    func createCat() -> SKSpriteNode {
-        let cat = CatNode()
-        let actualX = random(min: cat.size.width/2, max: self.size.width - cat.size.width/2)
-        let actualY = random(min: cat.size.height/2, max: self.size.height - cat.size.height/2)
-        cat.position = CGPoint(x: actualX, y: actualY)
-        return cat
-    }
 
-    func multipleSprite(amount: Int) {
+    func createCats(amount: Int) {
         var i: Int = 0
+        let maxY: Int = 100
+        let maxX: Int = 100
+        var gridArray = [(Int,Int)]()
+      
+        (1...maxY).forEach { (y) in
+            (1...maxX).forEach({ (x) in
+                gridArray.append((x,y))
+            })
+        }
+        
+        let widthGridBlock = self.size.width/CGFloat(maxX)
+        let heightGridBlock = self.size.height/CGFloat(maxY)
+        
         while i < amount {
-            let sprite = createCat()
+            let sprite = CatNode()
+            let randomGrid = Int(arc4random_uniform(UInt32(gridArray.count)))
+            let position = gridArray[randomGrid]
+            print(position)
+            
+            let actualX = random(min: CGFloat(position.0-1)*widthGridBlock, max: CGFloat(position.0)*widthGridBlock )
+            let actualY = random(min: CGFloat(position.1-1)*heightGridBlock, max: CGFloat(position.1)*heightGridBlock)
+            sprite.position = CGPoint(x: actualX, y: actualY)
             i += 1
+            gridArray.remove(at: randomGrid)
             self.addChild(sprite)
         }
+    }
+    
+    func createGrid(){
+        
+        
+
     }
 
     func random(min: CGFloat, max: CGFloat) -> CGFloat {
@@ -111,6 +133,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func bombDidCollideWithCat(bomb: SKSpriteNode, cat: SKSpriteNode) {
         print("Hit")
         cat.removeFromParent()
+     
         
     }
 }
